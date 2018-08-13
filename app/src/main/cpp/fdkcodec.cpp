@@ -1,14 +1,9 @@
-#include <jni.h>
-#include <string>
-#include "aacenc_lib.h"
-#include <android/log.h>
+#include <fdkcodec.h>
 
-#define  LOG_TAG    "fdkcodec"
-#define  LOGD(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+void releaseInternal();
 
 HANDLE_AACENCODER gAacEncoder;
 
-extern "C"
 JNIEXPORT void JNICALL
 Java_com_xiaoyi_fdkaac_FDKCodec_init(JNIEnv *env, jobject instance, jint sampleRate,
                                      jint channelCount, jint bitRate) {
@@ -89,7 +84,6 @@ Java_com_xiaoyi_fdkaac_FDKCodec_init(JNIEnv *env, jobject instance, jint sampleR
 
 }
 
-extern "C"
 JNIEXPORT jbyteArray JNICALL
 Java_com_xiaoyi_fdkaac_FDKCodec_encode(JNIEnv *env, jobject instance, jshortArray input_) {
 
@@ -160,28 +154,138 @@ Java_com_xiaoyi_fdkaac_FDKCodec_encode(JNIEnv *env, jobject instance, jshortArra
     return outArray;
 }
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_xiaoyi_fdkaac_FDKCodec_decode(JNIEnv *env, jobject instance, jbyteArray input_,
-                                       jbyteArray output_) {
-    jbyte *input = env->GetByteArrayElements(input_, NULL);
-    jbyte *output = env->GetByteArrayElements(output_, NULL);
 
-    // TODO
-
-    env->ReleaseByteArrayElements(input_, input, 0);
-    env->ReleaseByteArrayElements(output_, output, 0);
-}
-
-extern "C"
 JNIEXPORT void JNICALL
 Java_com_xiaoyi_fdkaac_FDKCodec_release(JNIEnv *env, jobject instance) {
 
-    AACENC_ERROR closeCode = aacEncClose(&gAacEncoder);
-    if (closeCode != AACENC_OK) {
-        LOGD("aacEncClose failed ");
-    } else {
-        LOGD("aacEncClose pass ");
+    if (NULL != gAacEncoder) {
+        AACENC_ERROR closeCode = aacEncClose(&gAacEncoder);
+        if (closeCode != AACENC_OK) {
+            LOGD("aacEncClose failed ");
+        } else {
+            LOGD("aacEncClose pass ");
+        }
+    }
+
+}
+
+HANDLE_AACDECODER gAacDecoder;
+int16_t *decodeBuffer;
+uint8_t *outBuffer;
+int outBufferSize = 2 * 8 * 2048;
+
+JNIEXPORT void JNICALL
+Java_com_xiaoyi_fdkaac_FDKCodec_initDecoder(JNIEnv *env, jobject instance) {
+
+    gAacDecoder = aacDecoder_Open(TT_MP4_ADTS, 1);
+
+}
+
+
+JNIEXPORT jbyteArray JNICALL
+Java_com_xiaoyi_fdkaac_FDKCodec_decode(JNIEnv *env, jobject instance, jbyteArray input_) {
+    jbyte *src = env->GetByteArrayElements(input_, NULL);
+    jint size = env->GetArrayLength(input_);
+
+    uint8_t *input = (uint8_t *) src;
+
+    if (size < 7) {
+        LOGD("Invalid adts header's length");
+        env->ReleaseByteArrayElements(input_, src, 0);
+        return NULL;
+    }
+
+    if (input[0] != 0xff || (input[1] & 0xf0) != 0xf0) {
+        LOGD("Not an adts packet");
+        env->ReleaseByteArrayElements(input_, src, 0);
+        return NULL;
+    }
+
+    int packetLength = ((input[3] & 0x03) << 11) | (input[4] << 3) | (input[5] >> 5);
+    LOGD("Packet length: %d", packetLength);
+    if (packetLength != size) {
+        LOGD("Partial packet");
+        env->ReleaseByteArrayElements(input_, src, 0);
+        return NULL;
+    }
+
+    uint validLength = packetLength;
+
+    AAC_DECODER_ERROR code = aacDecoder_Fill(gAacDecoder, &input, (const UINT *) &packetLength,
+                                             &validLength);
+
+    if (code != AAC_DEC_OK) {
+        LOGD("Fill buffer failed");
+        env->ReleaseByteArrayElements(input_, src, 0);
+        return NULL;
+    }
+
+    decodeBuffer = new int16_t[outBufferSize];
+    outBuffer = new uint8_t[outBufferSize];
+
+    code = aacDecoder_DecodeFrame(gAacDecoder, decodeBuffer, outBufferSize / sizeof(INT_PCM), 0);
+    if (code == AAC_DEC_NOT_ENOUGH_BITS) {
+        LOGD("Aac decode not enough bits");
+    } else if (code != AAC_DEC_OK) {
+        LOGD("Decode failed");
+    }
+
+    jbyteArray target = NULL;
+    int frame_size = 0;
+
+    if (code == AAC_DEC_OK) {
+        CStreamInfo *info = aacDecoder_GetStreamInfo(gAacDecoder);
+
+        if (!info || info->sampleRate <= 0) {
+            LOGD("No stream info");
+            releaseInternal();
+            return NULL;
+        }
+
+        LOGD("Stream info frameSize: %d, numChannels: %d ", info->frameSize, info->numChannels);
+        frame_size = info->frameSize * info->numChannels;
+
+        for (int i = 0; i < frame_size; i++) {
+            uint8_t *out = &outBuffer[2 * i];
+            out[0] = decodeBuffer[i] & 0xff;
+            out[1] = decodeBuffer[i] >> 8;
+        }
+
+        if (frame_size != 0) {
+            target = env->NewByteArray(frame_size * 2);
+            env->SetByteArrayRegion(target, 0, frame_size * 2, (const jbyte *) outBuffer);
+        }
+    }
+
+    env->ReleaseByteArrayElements(input_, src, 0);
+    return target;
+}
+
+void releaseInternal() {
+    if (outBuffer) {
+        delete (outBuffer);
+    }
+
+    if (decodeBuffer) {
+        delete (decodeBuffer);
+    }
+
+    LOGD("Delete any allocated memory ");
+}
+
+JNIEXPORT void JNICALL
+Java_com_xiaoyi_fdkaac_FDKCodec_releaseDecoder(JNIEnv *env, jobject instance) {
+    LOGD("aacDecoder_Close ");
+    if (gAacDecoder) {
+        aacDecoder_Close(gAacDecoder);
+    }
+
+    if (outBuffer) {
+        delete (outBuffer);
+    }
+
+    if (decodeBuffer) {
+        delete (decodeBuffer);
     }
 
 }

@@ -14,8 +14,11 @@ public class FDKCodec {
 
     public native byte[] encode(short[] input);
 
-    public native void decode(byte[] input, byte[] output);
-
     public native void release();
 
+    public native void initDecoder();
+
+    public native byte[] decode(byte[] input);
+
+    public native void releaseDecoder();
 }

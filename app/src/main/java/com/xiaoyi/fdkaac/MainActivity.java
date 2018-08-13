@@ -43,6 +43,10 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.encode).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                byte[] src = {0x20, 0x34, 0x67, (byte) 0x89, (byte) 0x87, 0x78};
+                byte[] target = new FDKCodec().decode(src);
+                Log.d("dht", "src hex string: " + ByteUtil.bytes2HexString(src));
+                Log.d("dht", "target hex string: " + ByteUtil.bytes2HexString(target));
             }
         });
 
@@ -121,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(TAG, " FDKCodec init  sampleRate: " + sampleRate + " channelCount: " + channelCount + " bitRate: " + bitRate);
             codec.init(sampleRate, channelCount, bitRate);
+            codec.initDecoder();
 
             if (minBufferSize > bufferSize) {
                 bufferSize = minBufferSize;
@@ -136,17 +141,25 @@ public class MainActivity extends AppCompatActivity {
             fileUtilPcm.init();
 
             byte[] encodedData;
+            byte[] decodedData;
 
             while (isRunning) {
                 int readCount = audioRecord.read(readBuffer, 0, bufferSize >> 1);
                 Log.d(TAG, "  buffer size: " + (bufferSize >> 1) + " readCount: " + readCount);
 
-                fileUtilPcm.write(readBuffer);
+//                fileUtilPcm.write(readBuffer);
 
                 encodedData = codec.encode(readBuffer);
                 if (encodedData != null) {
                     Log.d(TAG, "encodedData: " + ByteUtil.bytes2HexString(encodedData));
                     fileUtilAac.write(encodedData);
+
+                    decodedData = codec.decode(encodedData);
+                    if (decodedData != null) {
+                        Log.d(TAG, "decodedData: " + ByteUtil.bytes2HexString(decodedData));
+                        fileUtilPcm.write(decodedData);
+                    }
+
                 } else {
                     Log.d(TAG, " Encode fail ");
                 }
@@ -164,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
             audioRecord.stop();
             audioRecord.release();
             codec.release();
+            codec.releaseDecoder();
 
             fileUtilAac.release();
             fileUtilPcm.release();

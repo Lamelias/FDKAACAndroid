@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/FDKAAC.iml" filepath="$PROJECT_DIR$/FDKAAC.iml" />
+      <module fileurl="file://E:\Repository\mine\FDKAACAndroid\FDKAAC.iml" filepath="E:\Repository\mine\FDKAACAndroid\FDKAAC.iml" />
+      <module fileurl="file://$PROJECT_DIR$/FDKAACAndroid.iml" filepath="$PROJECT_DIR$/FDKAACAndroid.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://E:\Repository\mine\FDKAACAndroid\app\app.iml" filepath="E:\Repository\mine\FDKAACAndroid\app\app.iml" />
     </modules>
   </component>
 </project>
