@@ -10,7 +10,7 @@ public class FDKCodec {
         System.loadLibrary("fdkcodec");
     }
 
-    public native void init(int sampleRate, int channelCount, int bitRate);
+    public native void init(AudioCodecSetting setting);
 
     public native byte[] encode(short[] input);
 
@@ -21,4 +21,5 @@ public class FDKCodec {
     public native byte[] decode(byte[] input);
 
     public native void releaseDecoder();
+
 }

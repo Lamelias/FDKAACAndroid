@@ -5,9 +5,18 @@ void releaseInternal();
 HANDLE_AACENCODER gAacEncoder;
 
 JNIEXPORT void JNICALL
-Java_com_xiaoyi_fdkaac_FDKCodec_init(JNIEnv *env, jobject instance, jint sampleRate,
-                                     jint channelCount, jint bitRate) {
+Java_com_xiaoyi_fdkaac_FDKCodec_init(JNIEnv *env, jobject instance, jobject setting) {
 
+    jclass settingCls = env->FindClass("com/xiaoyi/fdkaac/AudioCodecSetting");
+    jfieldID sampleField = env->GetFieldID(settingCls, "sampleRate", "I");
+    jfieldID bitrateField = env->GetFieldID(settingCls, "bitRate", "I");
+    jfieldID channelCountField = env->GetFieldID(settingCls, "channelCount", "I");
+
+    jint sampleRate = env->GetIntField(setting, sampleField);
+    jint bitRate = env->GetIntField(setting, bitrateField);
+    jint channelCount = env->GetIntField(setting, channelCountField);
+
+    LOGD("sampleRate: %d, bitRate: %d, channelCount: %d", sampleRate, bitRate, channelCount);
 
     if (aacEncOpen(&gAacEncoder, 0x01, channelCount) != AACENC_OK) {
         LOGD("aacEncOpen failed ");
@@ -170,9 +179,9 @@ Java_com_xiaoyi_fdkaac_FDKCodec_release(JNIEnv *env, jobject instance) {
 }
 
 HANDLE_AACDECODER gAacDecoder;
-int16_t *decodeBuffer;
-uint8_t *outBuffer;
 int outBufferSize = 2 * 8 * 2048;
+int16_t *decodeBuffer = new int16_t[outBufferSize];
+uint8_t *outBuffer = new uint8_t[outBufferSize];
 
 JNIEXPORT void JNICALL
 Java_com_xiaoyi_fdkaac_FDKCodec_initDecoder(JNIEnv *env, jobject instance) {
@@ -220,8 +229,6 @@ Java_com_xiaoyi_fdkaac_FDKCodec_decode(JNIEnv *env, jobject instance, jbyteArray
         return NULL;
     }
 
-    decodeBuffer = new int16_t[outBufferSize];
-    outBuffer = new uint8_t[outBufferSize];
 
     code = aacDecoder_DecodeFrame(gAacDecoder, decodeBuffer, outBufferSize / sizeof(INT_PCM), 0);
     if (code == AAC_DEC_NOT_ENOUGH_BITS) {

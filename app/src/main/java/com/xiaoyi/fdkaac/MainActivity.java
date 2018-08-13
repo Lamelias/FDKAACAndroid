@@ -124,7 +124,12 @@ public class MainActivity extends AppCompatActivity {
 
 
             Log.d(TAG, " FDKCodec init  sampleRate: " + sampleRate + " channelCount: " + channelCount + " bitRate: " + bitRate);
-            codec.init(sampleRate, channelCount, bitRate);
+
+            AudioCodecSetting setting = new AudioCodecSetting();
+            setting.sampleRate = sampleRate;
+            setting.channelCount = channelCount;
+            setting.bitRate = bitRate;
+            codec.init(setting);
             codec.initDecoder();
 
             if (minBufferSize > bufferSize) {

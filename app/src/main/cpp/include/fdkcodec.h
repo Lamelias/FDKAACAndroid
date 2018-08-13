@@ -19,10 +19,10 @@ extern "C" {
 /*
  * Class:     com_xiaoyi_fdkaac_FDKCodec
  * Method:    init
- * Signature: (III)V
+ * Signature: (Lcom/xiaoyi/fdkaac/AudioCodecSetting;)V
  */
 JNIEXPORT void JNICALL Java_com_xiaoyi_fdkaac_FDKCodec_init
-        (JNIEnv *, jobject, jint, jint, jint);
+        (JNIEnv *, jobject, jobject);
 
 /*
  * Class:     com_xiaoyi_fdkaac_FDKCodec
